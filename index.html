@@ -3,47 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>학급 청소당번 랜덤 추첨</title>
+  <title>학급 자리표 랜덤 배치</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
-  <div class="bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-lg">
-    <h1 class="text-2xl font-bold mb-2">학급 청소당번 랜덤 추첨</h1>
-    <p class="text-gray-400 mb-4">1번부터 30번 사이에서 <span class="text-cyan-400 font-semibold">5명</span>을 중복 없이 뽑습니다.</p>
+  <div class="bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-4xl">
+    <h1 class="text-2xl font-bold mb-2">학급 자리표 랜덤 배치</h1>
+    <p class="text-gray-400 mb-4">자리 칸 수를 지정하고, 입력한 이름들을 무작위로 배치합니다.</p>
 
-    <div class="mb-4 grid grid-cols-3 gap-2">
-      <input id="min" type="number" value="1" min="1" class="form-control" placeholder="최소 번호">
-      <input id="max" type="number" value="30" min="1" class="form-control" placeholder="최대 번호">
-      <input id="count" type="number" value="5" min="1" class="form-control" placeholder="인원 수">
+    <textarea id="nameList" class="form-control mb-4" placeholder="학생 이름을 줄바꿈으로 입력" rows="6"></textarea>
+
+    <div class="mb-4 grid grid-cols-2 gap-2">
+      <input id="rows" type="number" value="5" min="1" class="form-control" placeholder="행 개수">
+      <input id="cols" type="number" value="6" min="1" class="form-control" placeholder="열 개수">
     </div>
 
-    <textarea id="exclude" class="form-control mb-4" placeholder="제외할 번호 (쉼표/공백)" rows="2"></textarea>
-
     <div class="flex gap-2 mb-4">
-      <button id="drawBtn" class="btn btn-success flex-1">추첨하기</button>
-      <button id="copyBtn" class="btn btn-secondary">복사</button>
+      <button id="drawBtn" class="btn btn-success flex-1">자리 배치하기</button>
       <button id="resetBtn" class="btn btn-danger">초기화</button>
     </div>
 
-    <div id="results" class="flex flex-wrap gap-2 mb-4"></div>
-    <div id="history" class="space-y-1 text-sm text-gray-400"></div>
+    <div id="seating" class="grid gap-2"></div>
   </div>
 
   <script>
     const $ = sel => document.querySelector(sel);
-
-    function parseExcludes(raw) {
-      return raw.split(/[.,\s]+/).map(v => v.trim()).filter(Boolean).map(Number);
-    }
-
-    function makePool(min, max, excludes) {
-      const set = new Set(excludes);
-      let pool = [];
-      for (let n = min; n <= max; n++) if (!set.has(n)) pool.push(n);
-      return pool;
-    }
 
     function shuffle(arr) {
       for (let i = arr.length - 1; i > 0; i--) {
@@ -53,44 +39,35 @@
       return arr;
     }
 
-    function drawUnique(min, max, count, excludes) {
-      const pool = makePool(min, max, excludes);
-      if (count > pool.length) throw new Error(`가능한 인원(${pool.length})보다 많습니다.`);
-      return shuffle(pool).slice(0, count).sort((a, b) => a - b);
-    }
-
-    function renderChips(nums) {
-      const box = $('#results');
-      box.innerHTML = '';
-      nums.forEach(n => {
-        const chip = document.createElement('span');
-        chip.className = 'px-3 py-2 bg-cyan-500 text-white rounded-full font-bold';
-        chip.textContent = n;
-        box.appendChild(chip);
-      });
-    }
-
-    function addHistory(nums) {
-      const hist = $('#history');
-      const time = new Date().toLocaleTimeString();
-      const item = document.createElement('div');
-      item.textContent = `${time} → ${nums.join(', ')}`;
-      hist.prepend(item);
-    }
-
     $('#drawBtn').addEventListener('click', () => {
       try {
-        const min = +$('#min').value || 1;
-        const max = +$('#max').value || 30;
-        const count = +$('#count').value || 5;
-        const excludes = parseExcludes($('#exclude').value);
-        const nums = drawUnique(min, max, count, excludes);
-        renderChips(nums);
-        addHistory(nums);
+        const names = $('#nameList').value.split(/\n+/).map(n => n.trim()).filter(Boolean);
+        if (!names.length) throw new Error('이름 목록을 입력하세요.');
+
+        const rows = +$('#rows').value || 1;
+        const cols = +$('#cols').value || 1;
+        const totalSeats = rows * cols;
+
+        if (names.length > totalSeats) throw new Error(`입력한 이름이 자리 수(${totalSeats})보다 많습니다.`);
+
+        const shuffled = shuffle([...names]);
+        while (shuffled.length < totalSeats) shuffled.push(''); // 빈자리 채움
+
+        const seating = $('#seating');
+        seating.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+        seating.innerHTML = '';
+
+        shuffled.forEach(name => {
+          const seat = document.createElement('div');
+          seat.className = 'bg-cyan-500 rounded-lg p-4 text-center font-bold text-white shadow';
+          seat.textContent = name || '빈자리';
+          seating.appendChild(seat);
+        });
+
         Swal.fire({
           icon: 'success',
-          title: '추첨 완료!',
-          text: `청소 당번: ${nums.join(', ')}`,
+          title: '자리 배치 완료!',
+          text: `${totalSeats}개의 자리가 랜덤으로 배정되었습니다.`,
           confirmButtonColor: '#06b6d4'
         });
       } catch (e) {
@@ -98,17 +75,9 @@
       }
     });
 
-    $('#copyBtn').addEventListener('click', () => {
-      const chips = Array.from($('#results').children).map(el => el.textContent);
-      if (!chips.length) return Swal.fire({ icon: 'warning', title: '결과 없음', text: '먼저 추첨하세요.' });
-      navigator.clipboard.writeText(`청소 당번: ${chips.join(', ')}`).then(() => {
-        Swal.fire({ icon: 'success', title: '복사 완료', text: '클립보드에 복사되었습니다.' });
-      });
-    });
-
     $('#resetBtn').addEventListener('click', () => {
-      $('#results').innerHTML = '';
-      Swal.fire({ icon: 'info', title: '초기화 완료', text: '결과가 초기화되었습니다.' });
+      $('#seating').innerHTML = '';
+      Swal.fire({ icon: 'info', title: '초기화 완료', text: '자리 배치가 초기화되었습니다.' });
     });
   </script>
 </body>
